@@ -1,0 +1,19 @@
+# --- Oh-My-Zsh libs/plugins (via Antidote) ---
+ohmyzsh/ohmyzsh path:lib/git.zsh        # lightweight git helpers used by OMZ
+ohmyzsh/ohmyzsh path:plugins/git         # aliases like gst, gl, gp, etc.
+
+# Do NOT use the OMZ fzf plugin; prefer native fzf bindings or fzf-tab
+# ohmyzsh/ohmyzsh path:plugins/fzf       # ← remove / keep commented
+
+# --- Completions (load before autosuggestions) ---
+zsh-users/zsh-completions
+
+# --- Suggestions & highlighting (order matters) ---
+zsh-users/zsh-autosuggestions
+zdharma-continuum/fast-syntax-highlighting  # faster alternative, pick ONE
+
+# --- Timing ---
+popstas/zsh-command-time
+
+# --- Optional: better <Tab> completion UI (requires fzf installed) ---
+Aloxaf/fzf-tab

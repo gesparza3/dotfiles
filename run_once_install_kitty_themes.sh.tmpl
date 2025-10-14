@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+dest="$HOME/.config/kitty/kitty-themes"
+if [ ! -d "$dest" ]; then
+  git clone --depth=1 https://github.com/kovidgoyal/kitty-themes "$dest"
+fi
+
+# Ensure your theme include exists (adjust the theme if you like)
+[ -f "$HOME/.config/kitty/theme.conf" ] || \
+  printf 'include ~/.config/kitty/kitty-themes/themes/ayu.conf\n' > "$HOME/.config/kitty/theme.conf"

@@ -1,4 +1,38 @@
-**/.git
+
 **/node_modules
 **/.cache
 **/.DS_Store
+
+# Ignore oh-my-zsh core files and caches
+.oh-my-zsh/
+.zcompdump*
+.cache/
+.history
+
+# third-party content, fetched at apply time
+.config/kitty/kitty-themes/
+.config/ranger/plugins/ranger_devicons/
+
+# generic ignores
+**/.git/
+**/.cache/
+
+# third-party/plugin repos and caches
+.config/ranger/plugins/
+**/__pycache__/
+**/.git/
+**/.cache/
+
+# third-party/plugin repos and caches
+.config/kitty/kitty-themes/
+.config/ranger/plugins/
+.config/nvim/lazy/
+.config/nvim/plugged/
+**/.git/
+**/.cache/
+**/__pycache__/
+
+{{ if eq .chezmoi.os "linux" }}
+.config/kitty/
+run_once_install_kitty_themes.sh.tmpl
+{{ end }}

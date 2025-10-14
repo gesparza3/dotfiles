@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Cross-platform Homebrew installer (macOS + Linuxbrew)
+if ! command -v brew >/dev/null 2>&1; then
+  echo "Installing Homebrew..."
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+
+# Ensure brew shellenv is loaded
+if [ -d "/home/linuxbrew/.linuxbrew" ]; then
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+elif [ -d "/opt/homebrew" ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+# Apply Brewfile from chezmoi source
+if [ -f "$HOME/.local/share/chezmoi/Brewfile" ]; then
+  brew bundle --file "$HOME/.local/share/chezmoi/Brewfile" || true
+fi

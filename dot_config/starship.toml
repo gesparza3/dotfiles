@@ -1,0 +1,49 @@
+# Top-level options
+add_newline = false  # keep the prompt tight (no blank line between commands)
+
+# Layout: like 'bira' — directory, git bits, runtimes on line 1; prompt char on line 2
+format = """
+$directory$git_branch$git_state$git_status$nodejs$python$hostname$line_break$character"""
+
+# Directory: last 3 segments, compact
+[directory]
+truncation_length = 3
+truncation_symbol = "…/"
+style = "blue bold"
+
+# Git, compact like bira
+[git_branch]
+symbol = " "
+style = "bright-yellow"
+format = "[$symbol$branch]($style) "
+
+[git_status]
+style = "cyan"
+format = '([\[$all_status$ahead_behind\]]($style)) '
+
+# Show short hostname; only on SSH (toggle ssh_only=false to always show)
+[hostname]
+ssh_only = true
+trim_at = "."
+format = "[@$hostname](bold purple) "
+disabled = false
+
+# Runtimes (optional, compact)
+[nodejs]
+symbol = "⬢ "
+style = "green"
+format = "[$symbol$version]($style) "
+
+[python]
+symbol = "🐍 "
+style = "yellow"
+format = "[$symbol$version]($style) "
+
+# The second-line prompt glyph, green on success, red on error
+[character]
+success_symbol = "[╰─❯](bold green)"
+error_symbol   = "[╰─❯](bold red)"
+
+# Explicit line break module so the prompt is always 2 lines
+[line_break]
+disabled = false

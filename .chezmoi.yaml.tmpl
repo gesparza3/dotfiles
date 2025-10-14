@@ -1,8 +1,10 @@
-# Chezmoi config (templated)
+# Generated config template for chezmoi
+# Renders to ~/.config/chezmoi/chezmoi.yaml
 sourceDir: "{{ .chezmoi.sourceDir }}"
 template:
   options:
-    missingkey: zero
+    - missingkey=zero
+
 data:
-  isDarwin: {{ eq .os "darwin" }}
-  isLinux:  {{ eq .os "linux" }}
+  isDarwin: {{ eq .chezmoi.os "darwin" }}
+  isLinux:  {{ eq .chezmoi.os "linux" }}

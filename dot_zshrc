@@ -1,0 +1,301 @@
+################################################################################
+# Platform detection
+################################################################################
+export ZDOTDIR="${ZDOTDIR:-$HOME}"
+IS_MAC=false; IS_WSL=false
+case "$(uname -s)" in
+  Darwin) IS_MAC=true ;;
+  Linux)  grep -qi microsoft /proc/version 2>/dev/null && IS_WSL=true ;;
+esac
+
+################################################################################
+# Homebrew (macOS or Linuxbrew)
+################################################################################
+if command -v brew >/dev/null 2>&1; then
+  eval "$(brew shellenv)"
+else
+  if [ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+  fi
+fi
+BREW_PREFIX="$(brew --prefix 2>/dev/null || true)"
+
+################################################################################
+# Prompt (Starship)
+# - Cross-shell prompt; fast; replaces OMZ theme
+################################################################################
+if command -v starship >/dev/null 2>&1; then
+  eval "$(starship init zsh)"
+else
+  echo "• Missing: starship → brew install starship"
+fi
+
+################################################################################
+# Antidote plugin manager
+# - Loads plugins listed in ~/.config/zsh/plugins.txt
+################################################################################
+ANTIDOTE_DIR="${ZDOTDIR}/.antidote"
+[ -d "$ANTIDOTE_DIR" ] || git clone --depth=1 https://github.com/mattmc3/antidote "$ANTIDOTE_DIR"
+source "$ANTIDOTE_DIR/antidote.zsh"
+antidote bundle < "$HOME/.config/zsh/plugins.txt" > "$HOME/.zsh_plugins.sh"
+source "$HOME/.zsh_plugins.sh" >/dev/null
+
+################################################################################
+# Options & history
+################################################################################
+unsetopt correct_all
+setopt share_history hist_ignore_dups hist_verify hist_expire_dups_first
+HISTFILE="$HOME/.zhistory"
+HISTSIZE=100000
+SAVEHIST=100000
+bindkey '^[[A' history-search-backward
+bindkey '^[[B' history-search-forward
+
+################################################################################
+# Command timing (for popstas/zsh-command-time)
+################################################################################
+typeset -F SECONDS
+ZSH_COMMAND_TIME_MIN_SECONDS=3
+ZSH_COMMAND_TIME_MSG="Execution time: %s sec"
+ZSH_COMMAND_TIME_EXCLUDE=(nvim mcedit)
+
+################################################################################
+# PATH (portable, deduped)
+################################################################################
+typeset -U path PATH
+path+=("$HOME/bin" "$HOME/.local/bin" "$HOME/.dotnet/tools" "$HOME/go/bin")
+if $IS_MAC; then
+  path+=("$HOME/.cache/lm-studio/bin" "$HOME/.codeium/windsurf/bin")
+fi
+export PATH
+
+################################################################################
+# Toolchains
+################################################################################
+export NVM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
+
+[ -s "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+[ -s "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
+
+export GPG_TTY="$(tty)"
+export VISUAL="nvim"
+export PAGER="less"
+
+################################################################################
+# Kubernetes
+################################################################################
+alias k='kubectl'
+if command -v kubectl >/dev/null 2>&1; then
+  source <(kubectl completion zsh)
+  compdef k=kubectl
+fi
+
+################################################################################
+# FZF defaults and keybindings
+################################################################################
+if command -v fzf >/dev/null 2>&1; then
+  [ -n "$BREW_PREFIX" ] && [ -r "$BREW_PREFIX/opt/fzf/shell/key-bindings.zsh" ] && \
+    source "$BREW_PREFIX/opt/fzf/shell/key-bindings.zsh"
+  [ -r "$HOME/.fzf/shell/key-bindings.zsh" ] && source "$HOME/.fzf/shell/key-bindings.zsh"
+fi
+if command -v rg >/dev/null 2>&1; then
+  export FZF_DEFAULT_COMMAND='rg --files --hidden --follow --glob "!.git"'
+  export FZF_DEFAULT_OPTS='-m --height 50% --border'
+fi
+
+################################################################################
+# Aliases
+################################################################################
+alias v='nvim'
+alias tf='terraform'
+alias tg='terragrunt'
+
+alias ghistory="git log --graph --pretty=oneline --abbrev-commit"
+alias gc='git commit'
+alias ga='git add'
+alias gl='git pull'
+alias gp='git push'
+alias gst='git status'
+alias gco='git checkout'
+alias gcam='git commit -A -m'
+
+alias ta="tmux attach -t"
+alias tn="tmux new -s"
+alias tk="tmux kill-session -t"
+alias tl="tmux ls"
+
+if command -v eza >/dev/null 2>&1; then
+  alias ls="eza --icons=always"
+  alias tree='eza --tree --icons=always'
+else
+  alias tree='tree -C'
+fi
+
+d='dirs -v | head -10'
+alias 1='cd -'
+alias 2='cd -2'
+alias 3='cd -3'
+alias 4='cd -4'
+alias 5='cd -5'
+alias 6='cd -6'
+alias 7='cd -7'
+alias 8='cd -8'
+alias 9='cd -9'
+
+alias zshreload='source ~/.zshrc && echo "ZSH config reloaded"'
+
+################################################################################
+# Helpers (do not shadow real tools)
+################################################################################
+rgg() { command rg --json -C 2 "$@" | delta; }
+hgg() { fc -nl 1 | command rg --json -C 2 "$@" | delta; }
+
+#############################################
+# Brewfile / chezmoi sync helper
+#############################################
+brew_sync() {
+  local brewfile="$HOME/Brewfile"
+  local chezmoi_src="$HOME/.local/share/chezmoi/Brewfile"
+
+  echo "Exporting installed packages to $brewfile..."
+  if command -v brew >/dev/null 2>&1; then
+    brew bundle dump --force --file="$brewfile"
+  else
+    echo "Homebrew not found, skipping dump."
+    return 1
+  fi
+
+  echo "Syncing Brewfile with chezmoi..."
+  chezmoi re-add "$brewfile"
+
+  echo "Checking diff before apply..."
+  chezmoi diff
+
+  echo "To finalize, run: chezmoi apply"
+}
+
+alias brew-sync='brew_sync'
+
+################################################################################
+# Secrets via pass (no env.local)
+# - Fetch secrets on demand; cached for this session
+################################################################################
+typeset -A _PASS_CACHE
+pass_get() {
+  local key="$1"
+  [[ -z "$key" ]] && { echo "pass_get <path/in/pass-store>" >&2; return 1; }
+  command -v pass >/dev/null 2>&1 || { echo "pass not installed. brew install pass" >&2; return 1; }
+  if [[ -n "${_PASS_CACHE[$key]}" ]]; then
+    print -r -- "${_PASS_CACHE[$key]}"; return 0
+  fi
+  local val
+  if ! val="$(pass show "$key" 2>/dev/null)"; then
+    echo "No secret at: $key  (add with: pass insert $key)" >&2
+    return 1
+  fi
+  _PASS_CACHE[$key]="$val"
+  print -r -- "$val"
+}
+# Example:
+# [ -z "$ANTHROPIC_API_KEY" ] && export ANTHROPIC_API_KEY="$(pass_get liatrio/anthropic/claude-code)"
+
+################################################################################
+# Dotfiles doctor
+################################################################################
+typeset -A _BREW_PKG
+_BREW_PKG=(
+  fzf     "fzf"
+  rg      "ripgrep"
+  git     "git"
+  delta   "git-delta"
+  eza     "eza"
+  tree    "tree"
+  kubectl "kubectl"
+  tmux    "tmux"
+  nvim    "neovim"
+  gpg     "gnupg"
+  pass    "pass"
+  starship "starship"
+)
+
+require_cmd() {
+  local cmd="$1"; local pkg="${_BREW_PKG[$cmd]}"; local ok=0
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    [ -n "$pkg" ] && echo "• Missing: $cmd  → brew install $pkg" || echo "• Missing: $cmd"
+    ok=1
+  fi
+  return $ok
+}
+
+check_fzf_keybindings() {
+  command -v fzf >/dev/null 2>&1 || return 0
+  local kb1="$BREW_PREFIX/opt/fzf/shell/key-bindings.zsh"
+  local kb2="$HOME/.fzf/shell/key-bindings.zsh"
+  if [ ! -r "$kb1" ] && [ ! -r "$kb2" ]; then
+    local hint=""
+    if command -v brew >/dev/null 2>&1; then
+      hint="$("$BREW_PREFIX/bin/brew" --prefix fzf 2>/dev/null)/install --key-bindings --completion"
+    else
+      hint="$HOME/.fzf/install --key-bindings --completion"
+    fi
+    echo "• fzf installed, but keybindings not found. Run: $hint"
+  fi
+}
+
+check_pass_setup() {
+  command -v pass >/dev/null 2>&1 || return 0
+  gpg --list-secret-keys >/dev/null 2>&1 || {
+    echo "• pass detected, but no GPG secret key found."
+    echo "  Generate: gpg --full-generate-key   then: pass init <GPG-ID>"
+  }
+}
+
+zdoctor() {
+  echo "=== dotfiles doctor ==="
+  local missing=0
+  require_cmd git      || missing=1
+  require_cmd starship || missing=1
+  require_cmd fzf      || missing=1
+  require_cmd rg       || missing=1
+  require_cmd delta    || missing=1
+  if ! command -v eza >/dev/null 2>&1; then
+    echo "• Optional: eza (modern ls). brew install eza"
+    require_cmd tree >/dev/null || missing=1
+  fi
+  require_cmd kubectl  || missing=1
+  require_cmd tmux     || missing=1
+  require_cmd nvim     || missing=1
+  require_cmd gpg      || missing=1
+  require_cmd pass     || missing=1
+
+  check_fzf_keybindings
+  check_pass_setup
+
+  if [ "$missing" -eq 0 ]; then
+    echo "All good ✔"
+  else
+    echo "Install the missing items above with Homebrew."
+  fi
+}
+
+# Auto-run once per day (disable with DOTFILES_SILENCE_DOCTOR=1)
+if [[ -z "$DOTFILES_SILENCE_DOCTOR" ]]; then
+  _DOT_STAMP="$HOME/.cache/.dot_doctor_stamp"
+  mkdir -p "$HOME/.cache" 2>/dev/null
+  if [[ ! -f "$_DOT_STAMP" || $(( $(date +%s) - $(date -r "$_DOT_STAMP" +%s) )) -gt 86400 ]]; then
+    zdoctor
+    : > "$_DOT_STAMP"
+  fi
+fi
+
+################################################################################
+# WSL niceties
+################################################################################
+if $IS_WSL; then
+  if ! command -v pbcopy >/dev/null 2>&1 && command -v clip.exe >/dev/null 2>&1; then
+    alias pbcopy='clip.exe'
+    alias pbpaste='powershell.exe -command "Get-Clipboard"'
+  fi
+fi
