@@ -1,0 +1,8 @@
+# Chezmoi config (templated)
+sourceDir: "{{ .chezmoi.sourceDir }}"
+template:
+  options:
+    missingkey: zero
+data:
+  isDarwin: {{ eq .os "darwin" }}
+  isLinux:  {{ eq .os "linux" }}
