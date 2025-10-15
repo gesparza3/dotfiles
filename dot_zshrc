@@ -37,8 +37,15 @@ fi
 ANTIDOTE_DIR="${ZDOTDIR}/.antidote"
 [ -d "$ANTIDOTE_DIR" ] || git clone --depth=1 https://github.com/mattmc3/antidote "$ANTIDOTE_DIR"
 source "$ANTIDOTE_DIR/antidote.zsh"
+
+# Build and load plugins
 antidote bundle < "$HOME/.config/zsh/plugins.txt" > "$HOME/.zsh_plugins.sh"
 source "$HOME/.zsh_plugins.sh" >/dev/null
+
+# --- Completion init (run once, after plugins) ---
+autoload -Uz compinit
+rm -f ~/.zcompdump(N) ~/.zcompdump.*(N) 2>/dev/null  # (N) avoids "no matches" errors
+compinit -u
 
 ################################################################################
 # Options & history
@@ -91,6 +98,11 @@ if command -v kubectl >/dev/null 2>&1; then
   source <(kubectl completion zsh)
   compdef k=kubectl
 fi
+
+# Make alias `v` complete like vim/nvim
+autoload -Uz _vim
+compdef _vim nvim
+compdef _vim v
 
 ################################################################################
 # FZF defaults and keybindings

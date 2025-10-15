@@ -2,6 +2,14 @@
 
 This repository manages dotfiles using [chezmoi](https://www.chezmoi.io/) for both macOS and Ubuntu/WSL systems. It automates setup for the shell, terminal, editor, and CLI tools.
 
+## Key Updates
+- **Replaced Oh My Zsh** with a faster stack:
+  - [Antidote](https://getantidote.github.io/) for plugin management.
+  - [Starship](https://starship.rs/) for a cross-shell, lightweight prompt.
+- Added **brew_sync** helper to keep your Brewfile and chezmoi state synchronized.
+
+---
+
 ## Repository Structure
 
 ```
@@ -15,10 +23,12 @@ This repository manages dotfiles using [chezmoi](https://www.chezmoi.io/) for bo
 │   ├── nvim/
 │   └── ranger/
 ├── run_once_install_homebrew.sh.tmpl
-├── run_once_install_ohmyzsh.sh.tmpl
+├── run_once_install_antidote.sh.tmpl
 ├── run_once_install_ranger_devicons.sh.tmpl
 └── run_once_install_kitty_themes.sh.tmpl
 ```
+
+---
 
 ## Setup
 
@@ -32,8 +42,10 @@ chezmoi apply --verbose
 ChezMoi will:
 1. Install Homebrew (macOS or Linuxbrew).
 2. Apply the Brewfile to install core tools.
-3. Install Oh My Zsh, Zsh plugins, Ranger devicons, and Kitty themes.
+3. Install Antidote, Zsh plugins, Ranger devicons, and Kitty themes.
 4. Apply configuration files under ~/.config.
+
+---
 
 ## Homebrew Management
 
@@ -51,40 +63,98 @@ brew "git"
 cask "kitty"  # macOS-only
 ```
 
-Sync with Brewfile:
+### Brew Sync Helper
+
 ```bash
-brew bundle --file ~/.local/share/chezmoi/Brewfile
-brew bundle cleanup --force --file ~/.local/share/chezmoi/Brewfile
+#############################################
+# Brewfile / chezmoi sync helper
+#############################################
+brew_sync() {
+  local brewfile="$HOME/Brewfile"
+  local chezmoi_src="$HOME/.local/share/chezmoi/Brewfile"
+
+  echo "Exporting installed packages to $brewfile..."
+  if command -v brew >/dev/null 2>&1; then
+    brew bundle dump --force --file="$brewfile"
+  else
+    echo "Homebrew not found, skipping dump."
+    return 1
+  fi
+
+  echo "Syncing Brewfile with chezmoi..."
+  chezmoi re-add "$brewfile"
+
+  echo "Checking diff before apply..."
+  chezmoi diff
+
+  echo "To finalize, run: chezmoi apply"
+}
+
+alias brew-sync='brew_sync'
 ```
 
-## Zsh and Oh My Zsh
+### How it works
+- Exports installed packages to `~/Brewfile` using `brew bundle dump`.
+- Re-adds the file to chezmoi for tracking.
+- Shows you the diff before applying changes.
+
+### Usage
+```bash
+brew-sync
+```
+That command will:
+1. Recreate your Brewfile from what’s installed.
+2. Stage it for chezmoi tracking.
+3. Let you confirm updates with `chezmoi diff` before committing or applying.
+
+---
+
+## Zsh with Antidote & Starship
 
 ### Plugin Management
 
-Plugins and themes are declared in:
+Plugins are declared in:
 ```
 ~/.config/zsh/plugins.txt
-~/.config/zsh/theme.txt
 ```
-
-The installation script clones external plugins automatically on first setup. `.zshrc` dynamically reads from those files.
 
 Example `plugins.txt`:
 ```
-git
-fzf
+zsh-users/zsh-completions
 zsh-users/zsh-autosuggestions
-zsh-users/zsh-syntax-highlighting
+zdharma-continuum/fast-syntax-highlighting
+popstas/zsh-command-time
 ```
 
-To add a plugin:
-1. Add its GitHub `owner/repo` to `plugins.txt`.
-2. Run `chezmoi apply`.
+### Prompt
+[Starship](https://starship.rs/) provides a fast, cross-shell prompt. Configure it via:
+```
+~/.config/starship.toml
+```
+
+Example:
+```toml
+add_newline = false
+command_timeout = 800
+
+[directory]
+truncation_length = 2
+truncation_symbol = "…/"
+style = "blue bold"
+
+[character]
+success_symbol = "[╰─❯](bold green) "
+error_symbol   = "[╰─❯](bold red) "
+```
+
+---
 
 ## Neovim
 
 - Uses init.lua with [lazy.nvim](https://github.com/folke/lazy.nvim).
-- lazy-lock.json is tracked for reproducible plugin versions.
+- `lazy-lock.json` is tracked for reproducible plugin versions.
+
+---
 
 ## Ranger
 
@@ -95,9 +165,13 @@ Config files:
 - ~/.config/ranger/rifle.conf
 - ~/.config/ranger/commands.py
 
+---
+
 ## Kitty (macOS Only)
 
 Kitty configuration and themes are managed through `run_once_install_kitty_themes.sh.tmpl` and are ignored on Linux/WSL.
+
+---
 
 ## Cross-Platform Behavior
 
@@ -105,9 +179,12 @@ Kitty configuration and themes are managed through `run_once_install_kitty_theme
 |------------|-------|---------------|
 | Homebrew | /opt/homebrew | /home/linuxbrew/.linuxbrew |
 | Kitty | Installed | Ignored |
-| Oh My Zsh | Installed | Installed |
+| Antidote | Installed | Installed |
+| Starship | Installed | Installed |
 | Brewfile | Shared | Shared |
 | GUI Tools | Installed via cask | Skipped |
+
+---
 
 ## Maintenance
 
@@ -118,7 +195,9 @@ Kitty configuration and themes are managed through `run_once_install_kitty_theme
 | Apply safely | `chezmoi apply` |
 | See tracked files | `chezmoi managed` |
 | Check health | `chezmoi doctor` |
-| Update Brewfile | `brew bundle dump --file ~/.local/share/chezmoi/Brewfile` |
+| Update Brewfile | `brew-sync` |
+
+---
 
 ## Suggested Aliases
 
@@ -127,8 +206,10 @@ Add these to `.zshrc` for convenience:
 ```bash
 alias dot-sync='chezmoi re-add ~/.config ~/.zshrc ~/.tmux.conf && chezmoi diff'
 alias dot-apply='chezmoi apply --verbose && chezmoi git commit -am "sync dotfiles" && chezmoi git push'
-alias brew-sync='brew bundle --file ~/.local/share/chezmoi/Brewfile && brew bundle cleanup --force --file ~/.local/share/chezmoi/Brewfile'
+alias brew-sync='brew_sync'
 ```
+
+---
 
 ## Ignored Files
 
@@ -143,15 +224,15 @@ alias brew-sync='brew bundle --file ~/.local/share/chezmoi/Brewfile && brew bund
 .oh-my-zsh/
 ```
 
+---
+
 ## Notes
 
-- All run_once scripts execute once per machine.
+- All `run_once` scripts execute once per machine.
 - To rerun, delete chezmoi’s state file:
 
 ```bash
 chezmoi state delete-bucket run_once
 chezmoi apply
 ```
-
-Maintainer: Grant Esparza
 
