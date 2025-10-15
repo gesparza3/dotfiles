@@ -8,6 +8,18 @@ case "$(uname -s)" in
   Linux)  grep -qi microsoft /proc/version 2>/dev/null && IS_WSL=true ;;
 esac
 
+# --- WSL-only: neutralize docker completion early ---
+if [[ -n "$WSL_DISTRO_NAME" ]]; then
+  mkdir -p "$HOME/.zsh/completions"
+  # tiny no-op completion so zsh won’t look in /usr/share/.../_docker
+  [[ -s "$HOME/.zsh/completions/_docker" ]] || cat > "$HOME/.zsh/completions/_docker" <<'EOF'
+#compdef docker
+_docker() { return 1 }
+EOF
+  # ensure our dir is searched first
+  fpath=("$HOME/.zsh/completions" $fpath)
+fi
+
 ################################################################################
 # Homebrew (macOS or Linuxbrew)
 ################################################################################
@@ -42,9 +54,19 @@ source "$ANTIDOTE_DIR/antidote.zsh"
 antidote bundle < "$HOME/.config/zsh/plugins.txt" > "$HOME/.zsh_plugins.sh"
 source "$HOME/.zsh_plugins.sh" >/dev/null
 
+if [[ -n "$WSL_DISTRO_NAME" ]]; then
+  mkdir -p ~/.zsh/completions
+  # minimal no-op completion for docker
+  cat > ~/.zsh/completions/_docker <<'EOF'
+#compdef docker
+_docker() { return 1 }
+EOF
+  # ensure our dir is scanned first
+  fpath=(~/.zsh/completions $fpath)
+fi
+
 # --- Completion init (run once, after plugins) ---
 autoload -Uz compinit
-rm -f ~/.zcompdump(N) ~/.zcompdump.*(N) 2>/dev/null  # (N) avoids "no matches" errors
 compinit -u
 
 ################################################################################
@@ -311,3 +333,13 @@ if $IS_WSL; then
     alias pbpaste='powershell.exe -command "Get-Clipboard"'
   fi
 fi
+
+# WSL-only keybinds
+if [[ "$OSTYPE" == "linux-gnu"* && -n "$WSL_DISTRO_NAME" ]]; then
+  bindkey '^[[1;5D' backward-word
+  bindkey '^[[1;5C' forward-word
+  bindkey '^[[1;3D' backward-word
+  bindkey '^[[1;3C' forward-word
+fi
+
+export HOMEBREW_PAGER="delta --paging=never"

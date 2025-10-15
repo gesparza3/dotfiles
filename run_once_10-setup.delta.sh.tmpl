@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# --- Helpers ---------------------------------------------------------------
+ensure_line_in_file() {
+  # $1=file, $2=line
+  local f="$1" line="$2"
+  mkdir -p "$(dirname "$f")"
+  touch "$f"
+  # Append only if the exact line does not already exist (ignoring surrounding spaces)
+  grep -Fxq "$line" "$f" || printf '%s\n' "$line" >> "$f"
+}
+
+has() { command -v "$1" >/dev/null 2>&1; }
+
+# --- 0) Pre-flight ---------------------------------------------------------
+if ! has delta; then
+  echo "[delta] delta not found. Install it first (e.g. 'brew install git-delta')."
+  exit 0
+fi
+
+# --- 1) Git: make delta the default, non-interactive -----------------------
+git config --global core.pager "delta --paging=never"
+git config --global interactive.diffFilter "delta --color-only"
+git config --global delta.navigate false
+git config --global delta.line-numbers true
+
+# Optional niceties (safe if delta present)
+git config --global delta.side-by-side false  # print-style by default
+git config --global delta.syntax-theme "auto" # let delta choose a sane theme
+
+echo "[delta] Configured git to use delta without paging."
+
+# --- 2) Chezmoí pager ------------------------------------------------------
+# --- 2) Chezmoí pager (string setting) -------------------------------------
+CHEZMOI_TOML="${HOME}/.config/chezmoi/chezmoi.toml"
+mkdir -p "$(dirname "$CHEZMOI_TOML")"
+
+if [ -f "$CHEZMOI_TOML" ]; then
+  # Remove any old [pager] table block
+  tmp="$(mktemp)"
+  awk '
+    BEGIN {skip=0}
+    /^\[pager\]$/ {skip=1; next}
+    /^\[.*\]$/ {skip=0}
+    skip==0 {print}
+  ' "$CHEZMOI_TOML" > "$tmp" && mv "$tmp" "$CHEZMOI_TOML"
+
+  # Set pager only if not already set
+  if ! grep -Eq '^\s*pager\s*=' "$CHEZMOI_TOML"; then
+    printf '\npager = "delta --paging=never"\n' >> "$CHEZMOI_TOML"
+  fi
+else
+  cat > "$CHEZMOI_TOML" <<'EOF'
+pager = "delta --paging=never"
+EOF
+fi
+echo "[delta] Set chezmoi pager to delta (no paging)."
+
+# --- 3) Homebrew pager (macOS & Linuxbrew) ---------------------------------
+set +u
+OS="{{ .chezmoi.os }}"
+set -u
+
+# macOS Homebrew
+if [ "$OS" = "darwin" ] && has brew; then
+  ensure_line_in_file "${HOME}/.zshrc" 'export HOMEBREW_PAGER="delta --paging=never"'
+  echo "[delta] Ensured HOMEBREW_PAGER in ~/.zshrc (macOS)."
+fi
+
+# Linuxbrew (e.g., WSL or native Linux)
+if [ "$OS" = "linux" ] && has brew; then
+  ensure_line_in_file "${HOME}/.zshrc" 'export HOMEBREW_PAGER="delta --paging=never"'
+  echo "[delta] Ensured HOMEBREW_PAGER in ~/.zshrc (Linuxbrew)."
+fi
+
+echo "[delta] Setup complete."
+
