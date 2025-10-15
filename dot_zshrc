@@ -121,7 +121,19 @@ if command -v kubectl >/dev/null 2>&1; then
   compdef k=kubectl
 fi
 
+################################################################################
+# Neovim
+################################################################################
 # Make alias `v` complete like vim/nvim
+export NVIM_LISTEN_ADDRESS="$HOME/.cache/nvim/server.sock"
+
+# Helper to start nvim with the server active if it isn't already
+nvim-server() {
+  mkdir -p "$HOME/.cache/nvim"
+  NVIM_LISTEN_ADDRESS="$NVIM_LISTEN_ADDRESS" nvim "$@"
+}
+
+# quality-of-life: use `v` instead of `nvim`
 autoload -Uz _vim
 compdef _vim nvim
 compdef _vim v
@@ -343,3 +355,10 @@ if [[ "$OSTYPE" == "linux-gnu"* && -n "$WSL_DISTRO_NAME" ]]; then
 fi
 
 export HOMEBREW_PAGER="delta --paging=never"
+
+# Always start new shells in home directory, unless another directory was explicitly requested
+if [[ -z "$ZSH_START_DIR_SET" && "$PWD" != "$HOME" ]]; then
+  cd ~
+  export ZSH_START_DIR_SET=1
+fi
+

@@ -31,6 +31,23 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 -- ---------------------------------------------------------------------------
+-- Vim server
+-- ---------------------------------------------------------------------------
+-- Ensure a Neovim RPC server is running at a known address for `nvr`
+local addr = vim.env.NVIM_LISTEN_ADDRESS or (vim.fn.stdpath("cache") .. "/nvim/server.sock")
+if vim.fn.has("nvim") == 1 then
+  local ok = pcall(function()
+    -- If nothing is listening yet, start one at `addr`
+    if vim.fn.serverlist and not vim.tbl_contains(vim.fn.serverlist(), addr) then
+      vim.fn.serverstart(addr)
+    end
+  end)
+  if ok then
+    vim.env.NVIM_LISTEN_ADDRESS = addr
+  end
+end
+
+-- ---------------------------------------------------------------------------
 -- Editor settings
 -- ---------------------------------------------------------------------------
 local opt = vim.opt
@@ -312,7 +329,7 @@ require("lazy").setup({
             require("claude-code").setup({
                 -- Window behavior
                 window = {
-                    position = "botright", -- "botright" (bottom split), "vertical" (side split), or "float" (popup)
+                    position = "vertical", -- "botright" (bottom split), "vertical" (side split), or "float" (popup)
                     split_ratio = 0.3, -- split mode size (fraction of screen)
                     enter_insert = true,
                     hide_numbers = true,
@@ -347,8 +364,8 @@ require("lazy").setup({
                 vim.cmd("ClaudeCode")
             end, { desc = "Claude: open in FLOAT window" })
 
-            vim.keymap.set("n", "<leader>cs", function()
-                require("claude-code").setup({ window = { position = "botright", split_ratio = 0.3 } })
+            vim.keymap.set("n", "<leader>cv", function()
+                require("claude-code").setup({ window = { position = "vertical", split_ratio = 0.3 } })
                 vim.cmd("ClaudeCode")
             end, { desc = "Claude: open in SPLIT window" })
         end,
