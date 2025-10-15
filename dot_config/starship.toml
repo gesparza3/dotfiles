@@ -2,8 +2,10 @@
 add_newline = false  # keep the prompt tight (no blank line between commands)
 
 # Layout: like 'bira' — directory, git bits, runtimes on line 1; prompt char on line 2
+#format = """
+#$directory$git_branch$git_state$git_status$nodejs$python$hostname$line_break$character"""
 format = """
-$directory$git_branch$git_state$git_status$nodejs$python$hostname$line_break$character"""
+$directory$git_branch$git_state$git_status$hostname$line_break$character"""
 
 # Directory: last 3 segments, compact
 [directory]
@@ -29,15 +31,15 @@ format = "[@$hostname](bold purple) "
 disabled = false
 
 # Runtimes (optional, compact)
-[nodejs]
-symbol = "⬢ "
-style = "green"
-format = "[$symbol$version]($style) "
-
-[python]
-symbol = "🐍 "
-style = "yellow"
-format = "[$symbol$version]($style) "
+#[nodejs]
+#symbol = "⬢ "
+#style = "green"
+#format = "[$symbol$version]($style) "
+#
+#[python]
+#symbol = "🐍 "
+#style = "yellow"
+#format = "[$symbol$version]($style) "
 
 # The second-line prompt glyph, green on success, red on error
 [character]
