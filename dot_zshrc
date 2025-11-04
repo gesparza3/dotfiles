@@ -42,6 +42,8 @@ else
   echo "• Missing: starship → brew install starship"
 fi
 
+set -o vi
+
 ################################################################################
 # Antidote plugin manager
 # - Loads plugins listed in ~/.config/zsh/plugins.txt
@@ -111,6 +113,9 @@ export NVM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/nvm"
 export GPG_TTY="$(tty)"
 export VISUAL="nvim"
 export PAGER="less"
+export COLORTERM=truecolor
+export TERM=xterm-256color
+
 
 ################################################################################
 # Kubernetes
@@ -355,3 +360,6 @@ if [[ -z "$ZSH_START_DIR_SET" && "$PWD" != "$HOME" ]]; then
   export ZSH_START_DIR_SET=1
 fi
 
+
+
+alias claude="/home/grantesparza/.claude/local/claude"
